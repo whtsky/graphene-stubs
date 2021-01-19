@@ -1,4 +1,9 @@
-from ...types import ID as ID, NonNull as NonNull, ObjectType as ObjectType, String as String
+from ...types import (
+    ID as ID,
+    NonNull as NonNull,
+    ObjectType as ObjectType,
+    String as String,
+)
 from ...types.definitions import GrapheneObjectType as GrapheneObjectType
 from ..node import GlobalID as GlobalID, Node as Node
 from typing import Any

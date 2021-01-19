@@ -9,12 +9,10 @@ from typing import Any, Callable, Dict, Optional, Type
 
 MYPY: bool
 
-
 class MutationOptions(ObjectTypeOptions):
     arguments: Dict[str, Argument] = ...
     output: Type[ObjectType] = ...
     resolver: Callable = ...
-
 
 class Mutation(ObjectType):
     @classmethod
@@ -25,15 +23,12 @@ class Mutation(ObjectType):
         arguments: Optional[Any] = ...,
         _meta: Optional[Any] = ...,
         **options: Any
-    ) -> None:
-        ...
-
+    ) -> None: ...
     @classmethod
     def Field(
         cls,
         name: Optional[Any] = ...,
         description: Optional[Any] = ...,
         deprecation_reason: Optional[Any] = ...,
-        required: bool = ...
-    ) -> Any:
-        ...
+        required: bool = ...,
+    ) -> Any: ...

@@ -1,6 +1,9 @@
 from graphene.types.enum import Enum as Enum, EnumOptions as EnumOptions
 from graphene.types.inputobjecttype import InputObjectType as InputObjectType
-from graphene.types.objecttype import ObjectType as ObjectType, ObjectTypeOptions as ObjectTypeOptions
+from graphene.types.objecttype import (
+    ObjectType as ObjectType,
+    ObjectTypeOptions as ObjectTypeOptions,
+)
 from typing import Any
 
 class SpecialOptions(ObjectTypeOptions):
@@ -8,7 +11,9 @@ class SpecialOptions(ObjectTypeOptions):
 
 class SpecialObjectType(ObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, other_attr: str = ..., **options: Any) -> None: ...
+    def __init_subclass_with_meta__(
+        cls, other_attr: str = ..., **options: Any
+    ) -> None: ...
 
 def test_special_objecttype_could_be_subclassed() -> None: ...
 def test_special_objecttype_could_be_subclassed_default() -> None: ...
@@ -19,7 +24,9 @@ class SpecialInputObjectTypeOptions(ObjectTypeOptions):
 
 class SpecialInputObjectType(InputObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, other_attr: str = ..., **options: Any) -> None: ...
+    def __init_subclass_with_meta__(
+        cls, other_attr: str = ..., **options: Any
+    ) -> None: ...
 
 def test_special_inputobjecttype_could_be_subclassed() -> None: ...
 def test_special_inputobjecttype_could_be_subclassed_default() -> None: ...
@@ -30,7 +37,9 @@ class SpecialEnumOptions(EnumOptions):
 
 class SpecialEnum(Enum):
     @classmethod
-    def __init_subclass_with_meta__(cls, other_attr: str = ..., **options: Any) -> None: ...
+    def __init_subclass_with_meta__(
+        cls, other_attr: str = ..., **options: Any
+    ) -> None: ...
 
 def test_special_enum_could_be_subclassed() -> None: ...
 def test_special_enum_could_be_subclassed_default() -> None: ...

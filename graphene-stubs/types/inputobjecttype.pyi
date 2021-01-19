@@ -6,33 +6,20 @@ from typing import Any, Dict, Optional
 
 MYPY: bool
 
-
 class InputObjectTypeOptions(BaseOptions):
     fields: Dict[str, InputField] = ...
     container: InputObjectTypeContainer = ...
 
-
 class InputObjectTypeContainer(dict, BaseType):
     class Meta:
         abstract: bool = ...
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        ...
-
-    def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None:
-        ...
-
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
+    def __init_subclass__(cls, *args: Any, **kwargs: Any) -> None: ...
 
 class InputObjectType(UnmountedType, BaseType):
     @classmethod
     def __init_subclass_with_meta__(  # type: ignore[override]
-        cls,
-        container: Optional[Any] = ...,
-        _meta: Optional[Any] = ...,
-        **options: Any
-    ) -> None:
-        ...
-
+        cls, container: Optional[Any] = ..., _meta: Optional[Any] = ..., **options: Any
+    ) -> None: ...
     @classmethod
-    def get_type(cls) -> Any:
-        ...
+    def get_type(cls) -> Any: ...

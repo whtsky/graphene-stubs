@@ -12,7 +12,14 @@ from .interface import Interface as Interface
 from .json import JSONString as JSONString
 from .mutation import Mutation as Mutation
 from .objecttype import ObjectType as ObjectType
-from .scalars import Boolean as Boolean, Float as Float, ID as ID, Int as Int, Scalar as Scalar, String as String
+from .scalars import (
+    Boolean as Boolean,
+    Float as Float,
+    ID as ID,
+    Int as Int,
+    Scalar as Scalar,
+    String as String,
+)
 from .schema import Schema as Schema
 from .structures import List as List, NonNull as NonNull
 from .union import Union as Union

@@ -3,7 +3,13 @@ from typing import Any, Optional
 
 class MyInputClass(graphene.InputObjectType):
     @classmethod
-    def __init_subclass_with_meta__(cls, container: Optional[Any] = ..., _meta: Optional[Any] = ..., fields: Optional[Any] = ..., **options: Any) -> None: ...
+    def __init_subclass_with_meta__(
+        cls,
+        container: Optional[Any] = ...,
+        _meta: Optional[Any] = ...,
+        fields: Optional[Any] = ...,
+        **options: Any
+    ) -> None: ...
 
 class MyInput(MyInputClass):
     class Meta:

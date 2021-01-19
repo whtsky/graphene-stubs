@@ -13,14 +13,16 @@ class RuntimeTest(TestCase):
 
             @staticmethod
             def resolve_string(_: None, __: ResolveInfo) -> str:
-                return 'foo'
+                return "foo"
 
         Schema(query=Query)
 
     def test_interface_is_indexable_at_runtime(self) -> None:
-        class Person(Interface[None]):  # pylint: disable=unsubscriptable-object, unused-variable
+        class Person(
+            Interface[None]
+        ):  # pylint: disable=unsubscriptable-object, unused-variable
             name = Field(String)
 
             @staticmethod
             def resolve_name(_: None, __: ResolveInfo) -> str:
-                return 'foo'
+                return "foo"

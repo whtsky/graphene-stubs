@@ -5,20 +5,15 @@ from typing import Any, Iterable, Optional, Type
 
 MYPY: bool
 
-
 class UnionOptions(BaseOptions):
     types: Iterable[Type[ObjectType]] = ...
 
-
 class Union(UnmountedType, BaseType):
     @classmethod
-    def __init_subclass_with_meta__(cls, types: Optional[Any] = ..., **options: Any) -> None:  # type: ignore[override]
-        ...
-
+    def __init_subclass_with_meta__(
+        cls, types: Optional[Any] = ..., **options: Any
+    ) -> None: ...
     @classmethod
-    def get_type(cls) -> Any:
-        ...
-
+    def get_type(cls) -> Any: ...
     @classmethod
-    def resolve_type(cls, instance: Any, info: Any) -> Any:
-        ...
+    def resolve_type(cls, instance: Any, info: Any) -> Any: ...

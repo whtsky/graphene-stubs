@@ -1,4 +1,10 @@
-from ..resolver import attr_resolver as attr_resolver, dict_or_attr_resolver as dict_or_attr_resolver, dict_resolver as dict_resolver, get_default_resolver as get_default_resolver, set_default_resolver as set_default_resolver
+from ..resolver import (
+    attr_resolver as attr_resolver,
+    dict_or_attr_resolver as dict_or_attr_resolver,
+    dict_resolver as dict_resolver,
+    get_default_resolver as get_default_resolver,
+    set_default_resolver as set_default_resolver,
+)
 from typing import Any
 
 args: Any

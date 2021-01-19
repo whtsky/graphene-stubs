@@ -1,5 +1,18 @@
-from ...types import Argument as Argument, Field as Field, Int as Int, List as List, NonNull as NonNull, ObjectType as ObjectType, Schema as Schema, String as String
-from ..connection import Connection as Connection, ConnectionField as ConnectionField, PageInfo as PageInfo
+from ...types import (
+    Argument as Argument,
+    Field as Field,
+    Int as Int,
+    List as List,
+    NonNull as NonNull,
+    ObjectType as ObjectType,
+    Schema as Schema,
+    String as String,
+)
+from ..connection import (
+    Connection as Connection,
+    ConnectionField as ConnectionField,
+    PageInfo as PageInfo,
+)
 from ..node import Node as Node
 from typing import Any
 

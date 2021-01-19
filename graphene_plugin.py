@@ -2,47 +2,96 @@
 from dataclasses import dataclass, field
 from itertools import chain
 import re
-from typing import Optional, Callable, Type as TypeOf, List, Any, Dict, cast, Union, Tuple
+from typing import (
+    Optional,
+    Callable,
+    Type as TypeOf,
+    List,
+    Any,
+    Dict,
+    cast,
+    Union,
+    Tuple,
+)
 
 from mypy.checker import TypeChecker
 from mypy.checkmember import analyze_member_access
-from mypy.nodes import AssignmentStmt, Decorator, CallExpr, Argument, TypeInfo, FuncDef, Statement, ClassDef, \
-    TupleExpr, Expression, MypyFile, ExpressionStmt, MemberExpr, Var, SymbolTableNode, MDEF, CastExpr, \
-    RefExpr, NameExpr
+from mypy.nodes import (
+    AssignmentStmt,
+    Decorator,
+    CallExpr,
+    Argument,
+    TypeInfo,
+    FuncDef,
+    Statement,
+    ClassDef,
+    TupleExpr,
+    Expression,
+    MypyFile,
+    ExpressionStmt,
+    MemberExpr,
+    Var,
+    SymbolTableNode,
+    MDEF,
+    CastExpr,
+    RefExpr,
+    NameExpr,
+)
 from mypy.options import Options
-from mypy.plugin import Plugin, AttributeContext, ClassDefContext, SemanticAnalyzerPluginInterface
+from mypy.plugin import (
+    Plugin,
+    AttributeContext,
+    ClassDefContext,
+    SemanticAnalyzerPluginInterface,
+)
 from mypy.state import strict_optional_set
 from mypy.subtypes import is_subtype, is_equivalent
-from mypy.types import AnyType, CallableType, Instance, TypeOfAny, Type, NoneType, UnionType, UnboundType
+from mypy.types import (
+    AnyType,
+    CallableType,
+    Instance,
+    TypeOfAny,
+    Type,
+    NoneType,
+    UnionType,
+    UnboundType,
+)
 
-RESOLVER_PREFIX = 'resolve_'
+RESOLVER_PREFIX = "resolve_"
 
-GRAPHENE_ARGUMENT_NAME = 'graphene.types.argument.Argument'
-GRAPHENE_ENUM_META_NAME = 'graphene.types.enum.EnumMeta'
-GRAPHENE_ENUM_NAME = 'graphene.types.enum.Enum'
-GRAPHENE_LIST_NAME = 'graphene.types.structures.List'
-GRAPHENE_NONNULL_NAME = 'graphene.types.structures.NonNull'
-GRAPHENE_OBJECTTYPE_NAME = 'graphene.types.objecttype.ObjectType'
-GRAPHENE_SCHEMA_NAME = 'graphene.types.schema.Schema'
-GRAPHENE_FIELD_NAME = 'graphene.types.field.Field'
-GRAPHENE_SCALAR_NAME = 'graphene.types.scalars.Scalar'
-GRAPHENE_UNMOUNTED_TYPE_NAME = 'graphene.types.unmountedtype.UnmountedType'
-GRAPHENE_STRUCTURE_NAME = 'graphene.types.structures.Structure'
-GRAPHENE_INTERFACE_NAME = 'graphene.types.interface.Interface'
+GRAPHENE_ARGUMENT_NAME = "graphene.types.argument.Argument"
+GRAPHENE_ENUM_META_NAME = "graphene.types.enum.EnumMeta"
+GRAPHENE_ENUM_NAME = "graphene.types.enum.Enum"
+GRAPHENE_LIST_NAME = "graphene.types.structures.List"
+GRAPHENE_NONNULL_NAME = "graphene.types.structures.NonNull"
+GRAPHENE_OBJECTTYPE_NAME = "graphene.types.objecttype.ObjectType"
+GRAPHENE_SCHEMA_NAME = "graphene.types.schema.Schema"
+GRAPHENE_FIELD_NAME = "graphene.types.field.Field"
+GRAPHENE_SCALAR_NAME = "graphene.types.scalars.Scalar"
+GRAPHENE_UNMOUNTED_TYPE_NAME = "graphene.types.unmountedtype.UnmountedType"
+GRAPHENE_STRUCTURE_NAME = "graphene.types.structures.Structure"
+GRAPHENE_INTERFACE_NAME = "graphene.types.interface.Interface"
 
-NOOP_ATTR_NAME = '__graphene_plugin_noop__'
+NOOP_ATTR_NAME = "__graphene_plugin_noop__"
 
 
-def _type_is_a(type_info: TypeInfo, other_fullname: Union[str, Tuple[str, ...]]) -> bool:
+def _type_is_a(
+    type_info: TypeInfo, other_fullname: Union[str, Tuple[str, ...]]
+) -> bool:
     """
     Checks if the given type (`type_info`) is some other type (`other_fullname`) or if the other type
     exists somewhere in its ancestry.
     """
-    all_fullnames = {other_fullname} if isinstance(other_fullname, str) else set(other_fullname)
+    all_fullnames = (
+        {other_fullname} if isinstance(other_fullname, str) else set(other_fullname)
+    )
     if type_info.fullname in all_fullnames:
         return True
 
-    return any(_type_is_a(base_type_info.type, other_fullname) for base_type_info in type_info.bases)
+    return any(
+        _type_is_a(base_type_info.type, other_fullname)
+        for base_type_info in type_info.bases
+    )
 
 
 def _add_var_to_class(name: str, typ: Type, info: TypeInfo) -> None:
@@ -53,12 +102,14 @@ def _add_var_to_class(name: str, typ: Type, info: TypeInfo) -> None:
 
     var = Var(name)
     var.info = info
-    var._fullname = f'{info.fullname}.{name}'  # pylint: disable=protected-access
+    var._fullname = f"{info.fullname}.{name}"  # pylint: disable=protected-access
     var.type = typ
     info.names[name] = SymbolTableNode(MDEF, var)
 
 
-def _add_attr_access_to_module(module: MypyFile, class_info: TypeInfo, attr_name: str) -> None:
+def _add_attr_access_to_module(
+    module: MypyFile, class_info: TypeInfo, attr_name: str
+) -> None:
     """
     Adds a statement that accesses a given `attr_name` of a type (specified via `class_info`) as the last
     statement in a `module`.
@@ -67,14 +118,16 @@ def _add_attr_access_to_module(module: MypyFile, class_info: TypeInfo, attr_name
     module.defs.append(
         ExpressionStmt(
             MemberExpr(
-                CastExpr(NameExpr('None'), Instance(class_info, [])),
+                CastExpr(NameExpr("None"), Instance(class_info, [])),
                 attr_name,
             )
         )
     )
 
 
-def _get_type_mismatch_error_message(arg_name: str, *, graphene_type: Type, resolver_type: Type) -> str:
+def _get_type_mismatch_error_message(
+    arg_name: str, *, graphene_type: Type, resolver_type: Type
+) -> str:
     return f'Parameter "{arg_name}" has type {resolver_type}, expected type {graphene_type}'
 
 
@@ -116,7 +169,9 @@ def _get_func_def(expression: Statement) -> Optional[FuncDef]:
     return None
 
 
-def _get_func_def_ret_type(semanal: SemanticAnalyzerPluginInterface, funcdef: FuncDef) -> Type:
+def _get_func_def_ret_type(
+    semanal: SemanticAnalyzerPluginInterface, funcdef: FuncDef
+) -> Type:
     """
     Given a `FuncDef`, return its return-type (or `Any`)
     """
@@ -134,7 +189,11 @@ def _get_func_def_ret_type(semanal: SemanticAnalyzerPluginInterface, funcdef: Fu
 
 
 def _get_python_type_from_graphene_field_first_argument(
-    semanal: SemanticAnalyzerPluginInterface, argument: Expression, *, covariant: bool, nullable: bool
+    semanal: SemanticAnalyzerPluginInterface,
+    argument: Expression,
+    *,
+    covariant: bool,
+    nullable: bool,
 ) -> Type:
     """
     Given the first argument to a `Field()`/`Argument()`, return the corresponding runtime (python) type. E.g.:
@@ -150,12 +209,14 @@ def _get_python_type_from_graphene_field_first_argument(
         # This is just a plain graphene type that doesn't wrap anything (i.e `String`, `MyObjectType`,
         # **not** `List(String)`, `NonNull(MyObjectType), etc.)``
         is_scalar = _type_is_a(argument.node, GRAPHENE_SCALAR_NAME)
-        is_object = _type_is_a(argument.node, (GRAPHENE_OBJECTTYPE_NAME, GRAPHENE_INTERFACE_NAME))
+        is_object = _type_is_a(
+            argument.node, (GRAPHENE_OBJECTTYPE_NAME, GRAPHENE_INTERFACE_NAME)
+        )
         is_enum = _type_is_a(argument.node, GRAPHENE_ENUM_NAME)
 
         if is_scalar:
             # This is some scalar (either a builtin one like `String` or a user-defined one)
-            parse_value_type = argument.node.names.get('parse_value')
+            parse_value_type = argument.node.names.get("parse_value")
             ret_type: Optional[Type] = None
             # Figure out the runtime type of the scalar by looking at the return value of its `parse_value` method
             if parse_value_type and isinstance(parse_value_type.type, CallableType):
@@ -177,18 +238,22 @@ def _get_python_type_from_graphene_field_first_argument(
 
         elif is_enum:
             # This is an `Enum` child-class, which means its value will just be a `str` at runtime
-            symbol_table_node = semanal.lookup_fully_qualified('builtins.str')
+            symbol_table_node = semanal.lookup_fully_qualified("builtins.str")
             assert isinstance(symbol_table_node.node, TypeInfo)
             type_ = Instance(symbol_table_node.node, [])
 
-    elif isinstance(argument, CallExpr) and isinstance(argument.callee, RefExpr) and argument.args:
+    elif (
+        isinstance(argument, CallExpr)
+        and isinstance(argument.callee, RefExpr)
+        and argument.args
+    ):
         # This is something being called (e.g. `List()`/`NonNull()`)
 
         if argument.callee.fullname == GRAPHENE_LIST_NAME:
             # This is a `List()`
 
             # Use a `Sequence` if we want type-checking to be covariant
-            iterable_type_name = 'typing.Sequence' if covariant else 'builtins.list'
+            iterable_type_name = "typing.Sequence" if covariant else "builtins.list"
 
             # Recursively call to figure out the runtime type of the first arg to `List()` and wrap the result
             # in a `builtins.list`/`typing.Sequence`.
@@ -196,9 +261,11 @@ def _get_python_type_from_graphene_field_first_argument(
             assert isinstance(symbol_table_node.node, TypeInfo)
             type_ = Instance(
                 symbol_table_node.node,
-                [_get_python_type_from_graphene_field_first_argument(
-                    semanal, argument.args[0], covariant=covariant, nullable=True
-                )],
+                [
+                    _get_python_type_from_graphene_field_first_argument(
+                        semanal, argument.args[0], covariant=covariant, nullable=True
+                    )
+                ],
             )
 
         elif argument.callee.fullname == GRAPHENE_NONNULL_NAME:
@@ -223,7 +290,9 @@ def _get_python_type_from_graphene_field_first_argument(
     return type_
 
 
-def _get_argument_value_expression(call: CallExpr, arg_name: str) -> Optional[Expression]:
+def _get_argument_value_expression(
+    call: CallExpr, arg_name: str
+) -> Optional[Expression]:
     """
     Given some call, return the expression of one of its arguments' values, or `None` if no
     argument with that name exists in the call. E.g.:
@@ -247,11 +316,16 @@ def _is_default_value_kwarg_not_none(expression: CallExpr) -> bool:
     * `Argument(String, default_value='foo')` => `True`
     """
 
-    default_value_expression = _get_argument_value_expression(expression, 'default_value')
+    default_value_expression = _get_argument_value_expression(
+        expression, "default_value"
+    )
     if not default_value_expression:
         return False
 
-    if isinstance(default_value_expression, NameExpr) and default_value_expression.fullname == 'builtins.None':
+    if (
+        isinstance(default_value_expression, NameExpr)
+        and default_value_expression.fullname == "builtins.None"
+    ):
         return False
 
     return True
@@ -268,8 +342,12 @@ def _is_required_kwarg_true(expression: CallExpr) -> bool:
     * `Field(String, required=some_computation())` => `False`
     """
 
-    required_expression = _get_argument_value_expression(expression, 'required')
-    return isinstance(required_expression, NameExpr) and required_expression.fullname == 'builtins.True'
+    required_expression = _get_argument_value_expression(expression, "required")
+    return (
+        isinstance(required_expression, NameExpr)
+        and required_expression.fullname == "builtins.True"
+    )
+
 
 def _get_python_type_from_graphene_field_instantiation(
     semanal: SemanticAnalyzerPluginInterface, expression: Expression, *, covariant: bool
@@ -283,14 +361,20 @@ def _get_python_type_from_graphene_field_instantiation(
     if not isinstance(expression, CallExpr):
         return AnyType(TypeOfAny.unannotated)
 
-    if not isinstance(expression.callee, RefExpr) or expression.callee.fullname != GRAPHENE_FIELD_NAME:
+    if (
+        not isinstance(expression.callee, RefExpr)
+        or expression.callee.fullname != GRAPHENE_FIELD_NAME
+    ):
         return AnyType(TypeOfAny.unannotated)
 
     if not expression.args:
         return AnyType(TypeOfAny.unannotated)
 
     return _get_python_type_from_graphene_field_first_argument(
-        semanal, expression.args[0], covariant=covariant, nullable=not _is_required_kwarg_true(expression)
+        semanal,
+        expression.args[0],
+        covariant=covariant,
+        nullable=not _is_required_kwarg_true(expression),
     )
 
 
@@ -303,7 +387,9 @@ def _get_python_type_from_graphene_argument_instantiation(
     E.g. `Argument(List(NonNull(String)), required=True) -> builtins.list[builtins.str]`
     """
 
-    assert isinstance(expression.callee, RefExpr) and isinstance(expression.callee.node, TypeInfo)
+    assert isinstance(expression.callee, RefExpr) and isinstance(
+        expression.callee.node, TypeInfo
+    )
 
     graphene_type: Optional[Expression] = None
     if _type_is_a(expression.callee.node, GRAPHENE_UNMOUNTED_TYPE_NAME):
@@ -329,7 +415,10 @@ def _get_python_type_from_graphene_argument_instantiation(
     has_non_null_default_value = _is_default_value_kwarg_not_none(expression)
 
     return _get_python_type_from_graphene_field_first_argument(
-        semanal, graphene_type, covariant=False, nullable=not is_required and not has_non_null_default_value
+        semanal,
+        graphene_type,
+        covariant=False,
+        nullable=not is_required and not has_non_null_default_value,
     )
 
 
@@ -340,7 +429,9 @@ def _get_graphene_subclass_runtime_type(type_info: TypeInfo) -> Type:
     """
 
     graphene_base = next(
-        base for base in type_info.bases if base.type.fullname in (GRAPHENE_OBJECTTYPE_NAME, GRAPHENE_INTERFACE_NAME)
+        base
+        for base in type_info.bases
+        if base.type.fullname in (GRAPHENE_OBJECTTYPE_NAME, GRAPHENE_INTERFACE_NAME)
     )
     # Note: even if no type argument was passed to `ObjectType`/`Interface` when it was sub-classed, there will still be
     # an item in the `args` list below. It will just be `Any`.
@@ -362,8 +453,10 @@ class FieldArgumentInfo:
     @classmethod
     def for_expression(
         cls, semanal: SemanticAnalyzerPluginInterface, name: str, expression: CallExpr
-    ) -> 'FieldArgumentInfo':
-        type_ = _get_python_type_from_graphene_argument_instantiation(semanal, expression)
+    ) -> "FieldArgumentInfo":
+        type_ = _get_python_type_from_graphene_argument_instantiation(
+            semanal, expression
+        )
         return cls(
             name=name,
             type=type_,
@@ -406,23 +499,28 @@ class FieldInfo:
                 and isinstance(arg.callee, RefExpr)
                 and isinstance(arg.callee.node, TypeInfo)
             ):
-                if (
-                    arg.callee.fullname == GRAPHENE_ARGUMENT_NAME
-                    or _type_is_a(arg.callee.node, GRAPHENE_UNMOUNTED_TYPE_NAME)
+                if arg.callee.fullname == GRAPHENE_ARGUMENT_NAME or _type_is_a(
+                    arg.callee.node, GRAPHENE_UNMOUNTED_TYPE_NAME
                 ):
-                    arguments.append(FieldArgumentInfo.for_expression(semanal, arg_name, arg))
+                    arguments.append(
+                        FieldArgumentInfo.for_expression(semanal, arg_name, arg)
+                    )
 
         return arguments
 
     @classmethod
-    def for_statement(cls, semanal: SemanticAnalyzerPluginInterface, statement: AssignmentStmt) -> 'FieldInfo':
+    def for_statement(
+        cls, semanal: SemanticAnalyzerPluginInterface, statement: AssignmentStmt
+    ) -> "FieldInfo":
         name_expr = statement.lvalues[0]
         arguments = cls._arguments_for_expression(semanal, statement.rvalue)
 
         assert isinstance(name_expr, NameExpr)
         return cls(
             name=name_expr.name,
-            type=_get_python_type_from_graphene_field_instantiation(semanal, statement.rvalue, covariant=True),
+            type=_get_python_type_from_graphene_field_instantiation(
+                semanal, statement.rvalue, covariant=True
+            ),
             arguments={argument.name: argument for argument in arguments},
             context=statement,
         )
@@ -443,8 +541,14 @@ class ResolverArgumentInfo:
     context: Argument
 
     @classmethod
-    def for_argument(cls, semanal: SemanticAnalyzerPluginInterface, argument: Argument) -> 'ResolverArgumentInfo':
-        type_annotation = semanal.anal_type(argument.type_annotation) if argument.type_annotation else None
+    def for_argument(
+        cls, semanal: SemanticAnalyzerPluginInterface, argument: Argument
+    ) -> "ResolverArgumentInfo":
+        type_annotation = (
+            semanal.anal_type(argument.type_annotation)
+            if argument.type_annotation
+            else None
+        )
         return cls(
             name=argument.variable.name,
             type=type_annotation or AnyType(TypeOfAny.unannotated),
@@ -472,16 +576,23 @@ class ResolverInfo:
     context: FuncDef
 
     @classmethod
-    def for_funcdef(cls, semanal: SemanticAnalyzerPluginInterface, funcdef: FuncDef) -> 'ResolverInfo':
-        field_name = re.sub(r'^resolve_', '', funcdef.name)
-        arguments = (ResolverArgumentInfo.for_argument(semanal, argument) for argument in funcdef.arguments[2:])
+    def for_funcdef(
+        cls, semanal: SemanticAnalyzerPluginInterface, funcdef: FuncDef
+    ) -> "ResolverInfo":
+        field_name = re.sub(r"^resolve_", "", funcdef.name)
+        arguments = (
+            ResolverArgumentInfo.for_argument(semanal, argument)
+            for argument in funcdef.arguments[2:]
+        )
 
         return cls(
             field_name=field_name,
             arguments={argument.name: argument for argument in arguments},
             return_type=_get_func_def_ret_type(semanal, funcdef),
             context=funcdef,
-            previous_argument=ResolverArgumentInfo.for_argument(semanal, funcdef.arguments[0]),
+            previous_argument=ResolverArgumentInfo.for_argument(
+                semanal, funcdef.arguments[0]
+            ),
         )
 
 
@@ -524,9 +635,17 @@ class BaseObjectInfo:
         return fields
 
     @classmethod
-    def for_classdef(cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef) -> 'BaseObjectInfo':
-        resolvers = {resolver.field_name: resolver for resolver in cls._resolvers_for_classdef(semanal, classdef)}
-        fields = {field.name: field for field in cls._fields_for_statements(semanal, classdef.defs.body)}
+    def for_classdef(
+        cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef
+    ) -> "BaseObjectInfo":
+        resolvers = {
+            resolver.field_name: resolver
+            for resolver in cls._resolvers_for_classdef(semanal, classdef)
+        }
+        fields = {
+            field.name: field
+            for field in cls._fields_for_statements(semanal, classdef.defs.body)
+        }
         runtime_type = _get_graphene_subclass_runtime_type(classdef.info)
 
         return cls(
@@ -566,12 +685,15 @@ class ObjectTypeInfo(BaseObjectInfo):
         semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef
     ) -> List[ClassDef]:
         for statement in classdef.defs.body:
-            if (
-                isinstance(statement, AssignmentStmt)
-                and any(isinstance(lval, NameExpr) and lval.name == 'interfaces' for lval in statement.lvalues)
+            if isinstance(statement, AssignmentStmt) and any(
+                isinstance(lval, NameExpr) and lval.name == "interfaces"
+                for lval in statement.lvalues
             ):
                 if not isinstance(statement.rvalue, TupleExpr):
-                    semanal.fail('"interfaces" attribute in Meta class must be a tuple type', statement)
+                    semanal.fail(
+                        '"interfaces" attribute in Meta class must be a tuple type',
+                        statement,
+                    )
                     return []
 
                 # Loop through tuple and add defintions of graphene `Interface`s to the final list.
@@ -589,9 +711,11 @@ class ObjectTypeInfo(BaseObjectInfo):
         return []
 
     @classmethod
-    def _interfaces_for_classdef(cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef) -> List[ClassDef]:
+    def _interfaces_for_classdef(
+        cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef
+    ) -> List[ClassDef]:
         for statement in classdef.defs.body:
-            if isinstance(statement, ClassDef) and statement.name == 'Meta':
+            if isinstance(statement, ClassDef) and statement.name == "Meta":
                 return cls._interface_classdefs_for_meta_classdef(semanal, statement)
 
         return []
@@ -601,13 +725,23 @@ class ObjectTypeInfo(BaseObjectInfo):
         cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef
     ) -> Dict[str, FieldInfo]:
         interface_def_statements = list(
-            chain(*(interface.defs.body for interface in cls._interfaces_for_classdef(semanal, classdef)))
+            chain(
+                *(
+                    interface.defs.body
+                    for interface in cls._interfaces_for_classdef(semanal, classdef)
+                )
+            )
         )
 
-        return {field.name: field for field in cls._fields_for_statements(semanal, interface_def_statements)}
+        return {
+            field.name: field
+            for field in cls._fields_for_statements(semanal, interface_def_statements)
+        }
 
     @classmethod
-    def for_classdef(cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef) -> 'ObjectTypeInfo':
+    def for_classdef(
+        cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef
+    ) -> "ObjectTypeInfo":
         base_info = BaseObjectInfo.for_classdef(semanal, classdef)
 
         return cls(
@@ -634,7 +768,9 @@ class InterfaceInfo(BaseObjectInfo):
     """
 
     @classmethod
-    def for_classdef(cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef) -> 'InterfaceInfo':
+    def for_classdef(
+        cls, semanal: SemanticAnalyzerPluginInterface, classdef: ClassDef
+    ) -> "InterfaceInfo":
         base_info = BaseObjectInfo.for_classdef(semanal, classdef)
 
         return cls(
@@ -651,7 +787,9 @@ class GraphenePlugin(Plugin):
 
         self._graphene_objects: Dict[str, Union[ObjectTypeInfo, InterfaceInfo]] = {}
 
-    def get_base_class_hook(self, fullname: str) -> Optional[Callable[[ClassDefContext], None]]:
+    def get_base_class_hook(
+        self, fullname: str
+    ) -> Optional[Callable[[ClassDefContext], None]]:
         def collect_graphene_subclass(ctx: ClassDefContext) -> None:
             """
             Collect type information about graphene `ObjectType` child classes. This plugin is invoked
@@ -665,9 +803,13 @@ class GraphenePlugin(Plugin):
             module = ctx.api.modules[ctx.cls.info.module_name]
 
             if _type_is_a(ctx.cls.info, GRAPHENE_OBJECTTYPE_NAME):
-                self._graphene_objects[ctx.cls.info.fullname] = ObjectTypeInfo.for_classdef(ctx.api, ctx.cls)
+                self._graphene_objects[
+                    ctx.cls.info.fullname
+                ] = ObjectTypeInfo.for_classdef(ctx.api, ctx.cls)
             elif _type_is_a(ctx.cls.info, GRAPHENE_INTERFACE_NAME):
-                self._graphene_objects[ctx.cls.info.fullname] = InterfaceInfo.for_classdef(ctx.api, ctx.cls)
+                self._graphene_objects[
+                    ctx.cls.info.fullname
+                ] = InterfaceInfo.for_classdef(ctx.api, ctx.cls)
 
             # Here is the fun hack. We want to type-check our `ObjectType`s at type-checking time, but
             # the `get_base_class_hook` only runs at semantic analysis time and as of now there is no
@@ -687,7 +829,9 @@ class GraphenePlugin(Plugin):
 
         return None
 
-    def get_attribute_hook(self, fullname: str) -> Optional[Callable[[AttributeContext], Type]]:
+    def get_attribute_hook(
+        self, fullname: str
+    ) -> Optional[Callable[[AttributeContext], Type]]:
         @strict_optional_set(True)
         def process_gql_schema(ctx: AttributeContext) -> Type:
             """
@@ -697,23 +841,35 @@ class GraphenePlugin(Plugin):
 
             assert isinstance(ctx.type, Instance)
             object_info = self._graphene_objects[ctx.type.type.fullname]
-            all_fields = object_info.all_fields if isinstance(object_info, ObjectTypeInfo) else object_info.fields
+            all_fields = (
+                object_info.all_fields
+                if isinstance(object_info, ObjectTypeInfo)
+                else object_info.fields
+            )
 
             # Check that resolver methods are annotated with the correct types
             for resolver in object_info.resolvers.values():
                 gql_field = all_fields.get(resolver.field_name)
 
                 if not gql_field:
-                    if isinstance(object_info, InterfaceInfo) and resolver.field_name == 'type':
+                    if (
+                        isinstance(object_info, InterfaceInfo)
+                        and resolver.field_name == "type"
+                    ):
                         # This is not a field resolver. It is the special `Interface` resolver that determines which
                         # `ObjectType` to use at runtime.
                         continue
 
-                    ctx.api.fail(f'No field with name "{resolver.field_name}" defined', resolver.context)
+                    ctx.api.fail(
+                        f'No field with name "{resolver.field_name}" defined',
+                        resolver.context,
+                    )
                     continue
 
                 # Check that the resolver's "previous" (first) argument has the correct type
-                if not is_equivalent(resolver.previous_argument.type, object_info.runtime_type):
+                if not is_equivalent(
+                    resolver.previous_argument.type, object_info.runtime_type
+                ):
                     ctx.api.fail(
                         _get_type_mismatch_error_message(
                             resolver.previous_argument.name,
@@ -727,7 +883,7 @@ class GraphenePlugin(Plugin):
                 # Check that the resolver returns the correct type
                 if not is_subtype(resolver.return_type, gql_field.type):
                     ctx.api.fail(
-                        f'Resolver returns type {resolver.return_type}, expected type {gql_field.type}',
+                        f"Resolver returns type {resolver.return_type}, expected type {gql_field.type}",
                         resolver.context,
                     )
                     continue
@@ -739,7 +895,7 @@ class GraphenePlugin(Plugin):
                     if not resolver_argument:
                         ctx.api.fail(
                             f'Parameter "{field_argument.name}" of type {field_argument.type} is missing,'
-                            ' but required in resolver definition',
+                            " but required in resolver definition",
                             resolver.context,
                         )
                         continue
@@ -762,7 +918,9 @@ class GraphenePlugin(Plugin):
                 # have resolvers for their fields.
                 # TODO: Detect if any of an `Interface`'s `ObjectType`s do _not_ define their own resolver for this
                 # field. In that case, we _do_ want to type-check the default resolver.
-                fields_without_resolver_names = set(object_info.fields.keys()) - set(object_info.resolvers.keys())
+                fields_without_resolver_names = set(object_info.fields.keys()) - set(
+                    object_info.resolvers.keys()
+                )
                 for name in fields_without_resolver_names:
                     gql_field = object_info.fields[name]
                     # Note: `analyze_member_access` will call `ctx.api.fail()` if the provided type doesn't have
@@ -780,8 +938,8 @@ class GraphenePlugin(Plugin):
                     )
                     if not is_subtype(default_resolver_return_type, gql_field.type):
                         ctx.api.fail(
-                            f'Field expects type {gql_field.type} but {object_info.runtime_type}.{gql_field.name} has '
-                            f'type {default_resolver_return_type}',
+                            f"Field expects type {gql_field.type} but {object_info.runtime_type}.{gql_field.name} has "
+                            f"type {default_resolver_return_type}",
                             gql_field.context,
                         )
                     continue
@@ -797,6 +955,7 @@ class GraphenePlugin(Plugin):
 def plugin(_: str) -> TypeOf[GraphenePlugin]:
     return GraphenePlugin
 
+
 def patch_object_type() -> None:
     """
     Patches `graphene.ObjectType` to make it indexable at runttime. This is necessary for it be
@@ -806,10 +965,11 @@ def patch_object_type() -> None:
     # type-checking time.
     from graphene import ObjectType  # pylint: disable=import-outside-toplevel
 
-
     ObjectTypeMetaclass = type(ObjectType)
 
-    def __getitem__(cls: TypeOf[TypeOf[ObjectType]], _: Any) -> TypeOf[TypeOf[ObjectType]]:
+    def __getitem__(
+        cls: TypeOf[TypeOf[ObjectType]], _: Any
+    ) -> TypeOf[TypeOf[ObjectType]]:
         return cls
 
     ObjectTypeMetaclass.__getitem__ = __getitem__  # type: ignore
