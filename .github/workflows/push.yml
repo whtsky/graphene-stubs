@@ -24,5 +24,22 @@ jobs:
           python-version: "3.9"
           architecture: "x64"
       - run: pip install -r dev-requirements.txt
+      - run: pip install -e .
       - run: mypy graphene_plugin.py
-      - run: mypy graphene_plugin.py
+      - run: mypy tests/
+  pytest:
+    name: pytest ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.6", "3.7", "3.8", "3.9"]
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: "x64"
+      - run: pip install -r dev-requirements.txt
+      - run: pip install -e .
+      - run: pytest --cov=graphene_plugin --cov-report xml --cov-report term-missing
+      - uses: codecov/codecov-action@v1

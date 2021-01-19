@@ -10,7 +10,7 @@ class UnionOptions(BaseOptions):
 
 class Union(UnmountedType, BaseType):
     @classmethod
-    def __init_subclass_with_meta__(
+    def __init_subclass_with_meta__(  # type: ignore[override]
         cls, types: Optional[Any] = ..., **options: Any
     ) -> None: ...
     @classmethod

@@ -12,7 +12,7 @@ class InterfaceOptions(BaseOptions):
 
 class Interface(Generic[RT], BaseType):
     @classmethod
-    def __init_subclass_with_meta__(
+    def __init_subclass_with_meta__(  # type: ignore[override]
         cls, _meta: Optional[Any] = ..., **options: Any
     ) -> None: ...
     @classmethod
