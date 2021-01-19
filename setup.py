@@ -11,7 +11,7 @@ install_instructions = """
 
 def find_stub_files():
     result = []
-    for root, dirs, files in os.walk(name):
+    for root, _, files in os.walk(name):
         for file in files:
             if file.endswith(".pyi"):
                 if os.path.sep in root:
@@ -31,7 +31,7 @@ setup(
     author_email="cohen@trialspark.com",
     license="MIT License",
     url="https://github.com/trialspark/graphene-stubs",
-    py_modules=["graphene_plugin", "graphene_typing"],
+    py_modules=["graphene_plugin"],
     install_requires=["mypy>=0.750"],
     packages=["graphene-stubs"],
     package_data={"graphene-stubs": find_stub_files()},
