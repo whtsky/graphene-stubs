@@ -1,3 +1,0 @@
-graphene-stubs
-graphene_plugin
-graphene_typing

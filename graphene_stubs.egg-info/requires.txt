@@ -1,2 +1,0 @@
-mypy>=0.750
-typing-extensions>=3.6.5
