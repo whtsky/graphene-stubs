@@ -11,7 +11,7 @@ install_instructions = """
 
 def find_stub_files():
     result = []
-    for root, _, files in os.walk(name):
+    for root, _, files in os.walk("graphene-stubs"):
         for file in files:
             if file.endswith(".pyi"):
                 if os.path.sep in root:
@@ -23,7 +23,7 @@ def find_stub_files():
 
 setup(
     name="graphene-types",
-    version="0.15",
+    version="0.15.1",
     description=description,
     long_description=install_instructions,
     long_description_content_type="text/markdown",
