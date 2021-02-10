@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from graphene import ObjectType, Field, String, ResolveInfo, Schema, Interface
-from graphene_plugin import patch_object_type
+from graphene_types.utils import patch_object_type
 
 patch_object_type()
 

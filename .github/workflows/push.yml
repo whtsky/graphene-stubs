@@ -3,6 +3,18 @@ on:
   pull_request:
 name: Main workflow
 jobs:
+  twine_check:
+    name: codestyle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.9"
+          architecture: "x64"
+      - run: pip install -r dev-requirements.txt
+      - run: python setup.py sdist bdist_wheel
+      - run: twine check dist/*
   codestyle:
     name: codestyle
     runs-on: ubuntu-latest
@@ -25,7 +37,7 @@ jobs:
           architecture: "x64"
       - run: pip install -r dev-requirements.txt
       - run: pip install -e .
-      - run: mypy graphene_plugin.py
+      - run: mypy graphene_types
       - run: mypy tests/
   pytest:
     name: pytest ${{ matrix.python-version }}

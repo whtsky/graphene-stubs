@@ -1,4 +1,3 @@
-# pylint: disable=no-name-in-module
 from dataclasses import dataclass, field
 from itertools import chain
 import re
@@ -7,7 +6,6 @@ from typing import (
     Callable,
     Type as TypeOf,
     List,
-    Any,
     Dict,
     cast,
     Union,
@@ -954,22 +952,3 @@ class GraphenePlugin(Plugin):
 
 def plugin(_: str) -> TypeOf[GraphenePlugin]:
     return GraphenePlugin
-
-
-def patch_object_type() -> None:
-    """
-    Patches `graphene.ObjectType` to make it indexable at runttime. This is necessary for it be
-    generic at typechecking time.
-    """
-    # Lazily import graphene as it is actually an expensive thing to do and we don't want to slow down things at
-    # type-checking time.
-    from graphene import ObjectType  # pylint: disable=import-outside-toplevel
-
-    ObjectTypeMetaclass = type(ObjectType)
-
-    def __getitem__(
-        cls: TypeOf[TypeOf[ObjectType]], _: Any
-    ) -> TypeOf[TypeOf[ObjectType]]:
-        return cls
-
-    ObjectTypeMetaclass.__getitem__ = __getitem__  # type: ignore

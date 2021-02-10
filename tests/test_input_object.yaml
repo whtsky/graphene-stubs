@@ -1,0 +1,11 @@
+- case: test_access_input_object_
+  main: |
+    import graphene
+
+    class PersonInput(graphene.InputObjectType):
+        name = graphene.String(required=True)
+        age = graphene.Int(required=True)
+
+    person: PersonInput
+    person.name
+    person['age']

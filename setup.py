@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 
-name = "graphene-stubs"
+name = "graphene-types"
 description = "Graphene stubs and mypy plugin"
 
 install_instructions = """
@@ -22,18 +22,17 @@ def find_stub_files():
 
 
 setup(
-    name="graphene-stubs",
+    name="graphene-types",
     version="0.15",
     description=description,
     long_description=install_instructions,
     long_description_content_type="text/markdown",
-    author="Cohen Karnell",
-    author_email="cohen@trialspark.com",
+    author="Wu Haotian",
+    author_email="whtsky@gmail.com",
     license="MIT License",
-    url="https://github.com/trialspark/graphene-stubs",
-    py_modules=["graphene_plugin"],
+    url="https://github.com/whtsky/graphene-types",
     install_requires=["mypy>=0.750"],
-    packages=["graphene-stubs"],
+    packages=["graphene-stubs", "graphene_types"],
     package_data={"graphene-stubs": find_stub_files()},
     classifiers=[
         "Programming Language :: Python :: 3",
